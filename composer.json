@@ -1,0 +1,6 @@
+{
+  "require": {
+    "symfony/mailer": "^6.1",
+    "symfony/process": "^6.1"
+  }
+}

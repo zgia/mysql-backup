@@ -7,6 +7,13 @@ namespace Neo\MySQLBackup;
 // Error Reporting
 ini_set('display_errors', 'off');
 error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
+set_error_handler(function ($severity, $errstr, $errfile, $errline) {
+    if (! (error_reporting() & $severity)) {
+        return true;
+    }
+    throw new \ErrorException("{$errstr} in {$errfile} on line {$errline}", $severity, $severity, $errfile, $errline);
+}, E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
+set_exception_handler(function (\Throwable $ex) {exit($ex->getMessage() . PHP_EOL); });
 
 // Default Timezone
 date_default_timezone_set('Asia/Shanghai');

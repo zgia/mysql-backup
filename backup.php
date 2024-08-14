@@ -7,13 +7,6 @@ namespace Neo\MySQLBackup;
 // Error Reporting
 ini_set('display_errors', 'off');
 error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
-set_error_handler(function ($severity, $errstr, $errfile, $errline) {
-    if (! (error_reporting() & $severity)) {
-        return true;
-    }
-    throw new \ErrorException("{$errstr} in {$errfile} on line {$errline}", $severity, $severity, $errfile, $errline);
-}, E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
-set_exception_handler(function (\Throwable $ex) {exit($ex->getMessage() . PHP_EOL); });
 
 // Default Timezone
 date_default_timezone_set('Asia/Shanghai');
@@ -63,18 +56,23 @@ class Backup
 
         static::loginfo('导出数据库并压缩');
 
-        $dbs = $this->config['mysqldump']['--databases'];
-        $options = [
-            '-c',
-            '-B ' . $dbs,
-        ];
-        foreach ($this->config['mysqldump']['--ignore-table-data'] as $itd) {
-            $options[] = '--ignore-table-data=' . $itd;
+        $ignore_table_data = $this->config['mysqldump']['--ignore-table'];
+        unset($this->config['mysqldump']['--ignore-table']);
+
+        $options = [];
+
+        foreach ($this->config['mysqldump'] as $k => $v) {
+            $options[] = $k . $v;
         }
 
+        foreach ($ignore_table_data as $itd) {
+            $options[] = '--ignore-table=' . $itd;
+        }
+
+        $dbs = trim($this->config['mysqldump']['-B']);
         $file = $this->dir . '/' . $this->dump(str_replace(' ', '_', $dbs) . '-' . $this->today, $options);
 
-        $subject = sprintf('[%s]-君欣欣兮乐康的备份文件', $this->today);
+        $subject = sprintf('[%s]-tinycrm databases backup', $this->today);
         $body = '备份数据库：' . $dbs;
 
         static::loginfo('发送邮件');
@@ -104,10 +102,11 @@ class Backup
         $sql = $basename . '.sql';
         $tar = $basename . '.tar.gz';
 
-        // mysqldump -c -B lxy --ignore-table-data=lxy.wp_commentmeta --ignore-table-data=lxy.wp_PluginManager > lxy.sql
+        // mysqldump -c -B lxy --ignore-table=lxy.wp_commentmeta --ignore-table=lxy.wp_PluginManager > lxy.sql
         $this->exec(sprintf('%s %s > %s', $this->config['cmd']['mysqldump'], implode(' ', $options), $sql));
-        $this->exec(sprintf('tar zcf %s %s', $tar, $sql));
-        $this->exec(sprintf('rm -f %s', $sql));
+        $this->exec(sprintf('%s -c --all-databases --no-data > db_scheme.sql', $this->config['cmd']['mysqldump']));
+        $this->exec(sprintf('tar zcf %s *.sql', $tar));
+        $this->exec('rm -f *.sql');
 
         return $tar;
     }

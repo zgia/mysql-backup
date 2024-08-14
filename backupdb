@@ -1,0 +1,33 @@
+#!/bin/bash
+
+BACKUP_PATH=/zgia/backup
+MYSQLDUMP="/usr/bin/mysqldump --defaults-file=/zgia/tools/backupdb.conf -B"
+BACKUP_DAY=$(TZ=UTC-8 date +%Y%m%d%H%M)
+BACKUP_DB=zgia
+BACKUP_FILE=${BACKUP_PATH}/${BACKUP_DB}-${BACKUP_DAY}
+
+MAIL_TIME=$(TZ=UTC-8 date "+%Y-%m-%d %H:%M:%S")
+MAIL_SENDER="快乐生活，快乐工作<zgia@163.com>"
+MAIL_RECIPIENT=liyuntian@gmail.com
+
+echo "${MAIL_TIME} 导出数据库..."
+
+${MYSQLDUMP} ${BACKUP_DB} > ${BACKUP_FILE}.sql
+if [ $? -ne 0  ];then
+    echo "${BACKUP_TIME} mysqldump error " >>  ${BACKUP_PATH}/mysqldump.log
+    exit 1
+fi
+
+tar -zcvf ${BACKUP_FILE}.tar.gz ${BACKUP_FILE}.sql
+rm -f ${BACKUP_FILE}.sql
+
+#删除10天前的文件
+find ${BACKUP_PATH} -name "zgia*.tar.gz" -mtime +10 -exec rm -rfv {} \;
+
+#发送备份文件
+echo "${MAIL_TIME} 发送备份文件..."
+echo "zgia.net,lixinyue.net 的数据库备份，备份时间: ${MAIL_TIME}" | mail -s "君欣欣兮乐康 数据库备份: ${MAIL_TIME}" -a ${BACKUP_FILE}.tar.gz -r "${MAIL_SENDER}" ${MAIL_RECIPIENT}
+
+echo "DONE"
+
+exit 0
